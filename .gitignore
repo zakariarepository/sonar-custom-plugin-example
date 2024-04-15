@@ -1,0 +1,12 @@
+node_modules
+.DS_Store
+yarn.lock
+node/
+.idea/
+sonar-example-plugin.iml
+target/
+
+# Eclipse
+.classpath
+.project
+.settings/
