@@ -17,31 +17,22 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 // Necessary for setting up, because of Webpack.
-//import OpenAI from "openai";
 import Backbone from "backbone";
 import $ from 'jquery';
 import _ from "underscore";
 import '../style.css';
 import React from 'react';
+import InstanceDynamicApp from './components/InstanceDynamicApp';
 
 window.$ = $;
 window._ = _;
 window.Backbone = Backbone;
 window.app = window.app || {};
-//const getClientEnvironment = require('../../../../conf/env');
 
-// Get environment variables to inject into our app.
-//const env = getClientEnvironment();
-import InstanceDynamicApp from './components/InstanceDynamicApp';
-
-//const openai = new OpenAI({
-//    dangerouslyAllowBrowser: true
-//});
 
 window.registerExtension('example/project_page', async function (options) {
+  //const container = options.el;
   const container = options.el;
-
-  // Render the React component inside the container
   ReactDOM.render(<InstanceDynamicApp />, container);
 });
 
