@@ -26,8 +26,7 @@
 
 .page {
   display: grid;
-  grid-template-columns: repeat(12, minmax(0, 1fr));
-  background-color: #D3D3D3; 
+  grid-template-columns: repeat(12, minmax(0, 1fr)); 
 }
 
 .sidebar {
