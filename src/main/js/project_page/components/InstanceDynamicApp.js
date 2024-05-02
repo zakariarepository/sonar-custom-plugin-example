@@ -31,12 +31,33 @@ const InstanceDynamicApp = () => {
   };
 
 
+        async function fetchCodeFromURL(url) {
+          try {
+            const response = await $.get(url);
+            return response;
+          } catch (error) {
+            console.error(`Error fetching code from ${url}: ${error}`);
+            return null;
+          }
+        }
+
+        async function fetchAllCodeSources() {
+          const response = await $.get('/api/measures/component_tree?metricKeys=coverage&component=sample-sonar');
+          const components = response.components;
+          const codePromises = components.map(component => fetchCodeFromURL(`/api/sources/raw?key=${component.key}`));
+          const codeResponses = await Promise.all(codePromises);
+          const fullCodeSource = codeResponses.filter(code => code !== null).join('\n');
+          return fullCodeSource;
+        }
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         // Perform GET request
-        const response = await $.get("/api/sources/raw?key=sample-sonar:sonar-plugins/src/main/java/pl/piomin/sonar/plugin/CustomRulesDefinition.java");
+
+        const fullcode = await fetchAllCodeSources();
+
+        //const response = await $.get("/api/sources/raw?key=sample-sonar:sonar-plugins/src/main/java/pl/piomin/sonar/plugin/CustomRulesDefinition.java");
         const message = `based on cwe database give all the vulnerabilities contained in code i provide you :
         you must respect strictly the following instructions and give the same result for same code :
         the response must be a json containing one attribuet "vulnerabilities" that contains a list, and each element of list have these attributes (respect spelling, don't invent additional properties) {title, priority, category, where, risk, assess, fix}, here is the content each element must be:
@@ -46,7 +67,7 @@ const InstanceDynamicApp = () => {
         where : full code snippet containing the vulnerability + (line reference/number),
         risk : (explain in detail + cve reference if it apply),
         assess : a guide on how to evaluate the risk (full paragraph),
-        fix : explain step by step how to mitigate vuln if possible(with code examples)}:\n\n${response}`;
+        fix : explain step by step how to mitigate vuln if possible(with code examples)}:\n\n${fullcode}`;
 
         const openai = new OpenAI({
           apiKey : "",
