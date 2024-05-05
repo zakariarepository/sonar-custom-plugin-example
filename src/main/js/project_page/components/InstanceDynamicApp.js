@@ -30,63 +30,76 @@ const InstanceDynamicApp = () => {
     };
   };
 
+async function fetchCodeFromURL(url) {
+    try {
+      const response = await $.get(url);
+      //console.log(`fetch code from url response : ${response}`);
+      return response;
+    } catch (error) {
+      console.error(`Error fetching code from ${url}: ${error}`);
+      return null;
+    }
+  }
 
-        async function fetchCodeFromURL(url) {
-          try {
-            const response = await $.get(url);
-            return response;
-          } catch (error) {
-            console.error(`Error fetching code from ${url}: ${error}`);
-            return null;
-          }
-        }
+  async function analyseFullCodeSource() {
+//    const response = await $.get('/api/measures/component_tree?metricKeys=coverage&component=sample-sonar');
+//    const components = response.components;
+    const components = [{"key":"sample-sonar:person-service/src/main/java/pl/piomin/sonar/Application.java","name":"Application.java","qualifier":"FIL","path":"person-service/src/main/java/pl/piomin/sonar/Application.java","language":"java","measures":[{"metric":"coverage","value":"91.7","bestValue":"false"}]},{"key":"sample-sonar:person-service/src/main/java/pl/piomin/sonar/exception/AuthenticationException.java","name":"AuthenticationException.java","qualifier":"FIL","path":"person-service/src/main/java/pl/piomin/sonar/exception/AuthenticationException.java","language":"java","measures":[{"metric":"coverage","value":"0.0","bestValue":"false"}]}];
+    let codeResponses = [];
+    const codePromises = components.map(component => analyseCodeFromURL(`/api/sources/raw?key=${component.key}`));
+    await Promise.all(codePromises).then((values) => {codeResponses = values}); //[{vulns : [vul1, vuln2,..]}, ...]
+    console.log(`codes : ${codeResponses}`);
 
-        async function fetchAllCodeSources() {
-          const response = await $.get('/api/measures/component_tree?metricKeys=coverage&component=sample-sonar');
-          const components = response.components;
-          const codePromises = components.map(component => fetchCodeFromURL(`/api/sources/raw?key=${component.key}`));
-          const codeResponses = await Promise.all(codePromises);
-          const fullCodeSource = codeResponses.filter(code => code !== null).join('\n');
-          return fullCodeSource;
+    const vulns = codeResponses.reduce((acc, obj) => acc.concat(obj), []);
+    console.log(`vulns : ${vulns}`);
+    return vulns;
+  }
+
+    async function analyseCodeFromURL(url) {
+        try {
+            const singlecode = fetchCodeFromURL(url);
+
+            const message = `based on cwe database give all the vulnerabilities contained in code i provide you :
+            you must respect strictly the following instructions and give the same result for same code :
+            the response must be a json containing one attribuet "vulnerabilities" that contains a list, and each element of list have these attributes (respect spelling, don't invent additional properties) {title, priority, category, where, risk, assess, fix}, here is the content each element must be:
+            title : what to do (for example : review this "problem")in one short sentence,
+            priority: high/medium/low,
+            category : authentication/XSS .., (4 words max)
+            where : full code snippet containing the vulnerability + (line reference/number),
+            risk : (explain in detail + cve reference if it apply),
+            assess : a guide on how to evaluate the risk (full paragraph),
+            fix : explain step by step how to mitigate vuln if possible(with code examples)}:\n\n${singlecode}`;
+
+            const openai = new OpenAI({
+		apiKey : "",
+    		dangerouslyAllowBrowser: true
+	    });
+
+            // Pass the response to OpenAI API
+            const completion = await openai.chat.completions.create({
+                messages: [{ role: "user", content: message }],
+                model: "ft:gpt-3.5-turbo-0125:personal:cybersec2:9IHj0qtk",
+                response_format: { "type": "json_object" },
+            });
+
+
+            const data = completion.choices[0].message.content;
+            console.log(`open ai raw response for a chunk : ${data}`);
+	    const parsedData = JSON.parse(data);
+            console.log(`open ai raw response for a chunk : ${parsedData["vulnerabilities"]}`);
+            return parsedData["vulnerabilities"];
+        } catch (error) {
+            console.error("Error:", error);
         }
+    }
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Perform GET request
-
-        const fullcode = await fetchAllCodeSources();
-
-        //const response = await $.get("/api/sources/raw?key=sample-sonar:sonar-plugins/src/main/java/pl/piomin/sonar/plugin/CustomRulesDefinition.java");
-        const message = `based on cwe database give all the vulnerabilities contained in code i provide you :
-        you must respect strictly the following instructions and give the same result for same code :
-        the response must be a json containing one attribuet "vulnerabilities" that contains a list, and each element of list have these attributes (respect spelling, don't invent additional properties) {title, priority, category, where, risk, assess, fix}, here is the content each element must be:
-        title : what to do (for example : review this "problem")in one short sentence,
-        priority: high/medium/low,
-        category : authentication/XSS .., (4 words max)
-        where : full code snippet containing the vulnerability + (line reference/number),
-        risk : (explain in detail + cve reference if it apply),
-        assess : a guide on how to evaluate the risk (full paragraph),
-        fix : explain step by step how to mitigate vuln if possible(with code examples)}:\n\n${fullcode}`;
-
-        const openai = new OpenAI({
-          apiKey : "",
-          dangerouslyAllowBrowser: true
-        });
-        // Pass the response to OpenAI API
-        const completion = await openai.chat.completions.create({
-          messages: [{ role: "user", content: message }],
-          model: "ft:gpt-3.5-turbo-0125:personal:cybersec2:9IHj0qtk",
-          response_format: { "type": "json_object" },
-        });
-
-        const data = completion.choices[0].message.content;
-        const parsedData = JSON.parse(data);
-        console.log(data);
-        console.log(parsedData);
+        const fullcodevulns = await analyseFullCodeSource();
 
         // Update vulnerabilities state
-        setVulnerabilities(parsedData["vulnerabilities"]);
+        setVulnerabilities(fullcodevulns);
       } catch (error) {
         console.error("Error:", error);
       }
