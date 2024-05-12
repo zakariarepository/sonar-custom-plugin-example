@@ -33,7 +33,7 @@ window.app = window.app || {};
 window.registerExtension('example/project_page', async function (options) {
   //const container = options.el;
   const container = options.el;
-  ReactDOM.render(<InstanceDynamicApp />, container);
+  ReactDOM.render(<InstanceDynamicApp project={options.component}/>, container);
 });
 
 

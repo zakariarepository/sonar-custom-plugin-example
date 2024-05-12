@@ -11,6 +11,7 @@ import VulnerabilityComponent from "./VulnerabilityComponent"
 const InstanceDynamicApp = () => {
   const [vulnerabilities, setVulnerabilities] = useState([]);
   const [selectedSection, setSelectedSection] = useState(null);
+  const [numVulnerabilities, setNumVulnerabilities] = useState(0);
   const sidebarRef = useRef(null);
   const contentRef = useRef(null);
   const isVisible = "visible";
@@ -42,7 +43,8 @@ async function fetchCodeFromURL(url) {
   }
 
   async function analyseFullCodeSource() {
-//    const response = await $.get('/api/measures/component_tree?metricKeys=coverage&component=sample-sonar');
+    console.time("Execution Time inside");
+//    const response = await $.get(`/api/measures/component_tree?metricKeys=coverage&component=${project.key}`);
 //    const components = response.components;
     const components = [{"key":"sample-sonar:person-service/src/main/java/pl/piomin/sonar/Application.java","name":"Application.java","qualifier":"FIL","path":"person-service/src/main/java/pl/piomin/sonar/Application.java","language":"java","measures":[{"metric":"coverage","value":"91.7","bestValue":"false"}]},{"key":"sample-sonar:person-service/src/main/java/pl/piomin/sonar/exception/AuthenticationException.java","name":"AuthenticationException.java","qualifier":"FIL","path":"person-service/src/main/java/pl/piomin/sonar/exception/AuthenticationException.java","language":"java","measures":[{"metric":"coverage","value":"0.0","bestValue":"false"}]}];
     let codeResponses = [];
@@ -52,6 +54,7 @@ async function fetchCodeFromURL(url) {
 
     const vulns = codeResponses.reduce((acc, obj) => acc.concat(obj), []);
     console.log(`vulns : ${vulns}`);
+    console.timeEnd("Execution Time inside");
     return vulns;
   }
 
@@ -84,9 +87,13 @@ async function fetchCodeFromURL(url) {
 
 
             const data = completion.choices[0].message.content;
-            console.log(`open ai raw response for a chunk : ${data}`);
 	    const parsedData = JSON.parse(data);
-            console.log(`open ai raw response for a chunk : ${parsedData["vulnerabilities"]}`);
+            parsedData["vulnerabilities"] = parsedData["vulnerabilities"].map(
+              (vulnerability) => {
+                return { ...vulnerability, url: url };
+              }
+            );
+            console.log(`open ai raw response for a chunk : ${JSON.stringify(parsedData["vulnerabilities"])}`);
             return parsedData["vulnerabilities"];
         } catch (error) {
             console.error("Error:", error);
@@ -94,10 +101,15 @@ async function fetchCodeFromURL(url) {
     }
 
   useEffect(() => {
+//    console.time("Execution Time");
     const fetchData = async () => {
       try {
         const fullcodevulns = await analyseFullCodeSource();
+        // Calculate the number of vulnerabilities
+        const numVulns = fullcodevulns.length;
 
+        // Update the state with the number of vulnerabilities
+        setNumVulnerabilities(numVulns);
         // Update vulnerabilities state
         setVulnerabilities(fullcodevulns);
       } catch (error) {
@@ -106,6 +118,7 @@ async function fetchCodeFromURL(url) {
     };
 
     fetchData();
+//    console.timeEnd("Execution Time");
   }, []);
 
  useEffect(() => {
@@ -171,7 +184,7 @@ async function fetchCodeFromURL(url) {
           <div className='horizontal-line '></div>
           <div className="sidebar-navigation-container">
             <div className='hotspot-number-container'>
-              <span ><strong>264</strong> Security Hotspots </span>
+              <span ><strong>{numVulnerabilities}</strong> Security Hotspots </span>
             </div>
             <div class="sw-mt-8 sw-mb-4">
               <div class="sw-mb-4">
@@ -191,7 +204,6 @@ async function fetchCodeFromURL(url) {
                           <div>
                             Authentication
                           </div>
-                          <span aria-label="162" class="css-i62nvh ez2fet90" role="status">162</span>
                         </div>
                       </button>
                       <div class="css-4t9nm1 e1yk15990"></div>
